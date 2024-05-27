@@ -1,0 +1,27 @@
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+    show-sql: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://auxby-keycloak.test.com/auth/realms/Test
+          jwk-set-uri: https://auxby-keycloak.test.com/auth/realms/Test/protocol/openid-connect/certs
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+  password: password
+
+aws:
+  region: test
+  bucket: test
+  accessKey: test
+  secretKey: test
+  endpoint: test
+

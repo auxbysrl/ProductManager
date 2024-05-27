@@ -1,0 +1,63 @@
+server:
+  port: 8082
+  ssl:
+    key-store: classpath:cert/auxbyCert.p12
+    key-store-password: passwordAuxby
+    key-store-type: PKCS12
+    key-alias: auxbycertificate
+    enabled: true
+    key-password: passwordAuxby
+spring:
+  application:
+    name: product-manager
+  profiles:
+    include: local, default
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+        format_sql: true
+    show-sql: true
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASS}
+application:
+  security:
+    jwt:
+      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      expiration: 604800000 # 7 days
+
+aws:
+  region: ${AWS_REGION}
+  bucket: ${AWS_BUCKET}
+  accessKey: ${AWS_ACCESS_KEY}
+  secretKey: ${AWS_SECRET_KEY}
+  endpoint: ${AWS_ENDPOINT}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    operations-sorter: method
+
+web-client:
+  base-url: https://${AUXBY_PLATFORM_URL}
+  category-url: /api/v1/category
