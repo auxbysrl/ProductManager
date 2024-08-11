@@ -1,4 +1,4 @@
-package com.auxby.productmanager.entity.base;
+package com.auxby.productmanager.api.v1.commun.entity.base;
 
 import lombok.Data;
 

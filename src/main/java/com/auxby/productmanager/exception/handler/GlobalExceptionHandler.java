@@ -4,6 +4,7 @@ import com.auxby.productmanager.api.v1.bid.model.PlaceBidResponse;
 import com.auxby.productmanager.exception.*;
 import com.auxby.productmanager.exception.response.ExceptionResponse;
 import com.auxby.productmanager.utils.constant.CustomHttpStatus;
+import org.apache.coyote.BadRequestException;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -71,6 +72,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(value = AuxbyAuthenticationException.class)
     protected ResponseEntity<ExceptionResponse> handleEditNotAllow(AuxbyAuthenticationException ex) {
         return ResponseEntity.status(CustomHttpStatus.BID_NOT_ACCEPTED.getValue())
+                .body(new ExceptionResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(value = BadRequestException.class)
+    protected ResponseEntity<ExceptionResponse> handleEditNotAllow(BadRequestException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ExceptionResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(value = DeepLinkGenerationException.class)
+    protected ResponseEntity<ExceptionResponse> handleEditNotAllow(DeepLinkGenerationException ex) {
+        return ResponseEntity.status(CustomHttpStatus.FAIL_TO_GENERATE_LINK.getValue())
                 .body(new ExceptionResponse(ex.getMessage()));
     }
 }

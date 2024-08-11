@@ -7,7 +7,6 @@ import com.auxby.productmanager.utils.enums.OfferType;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public record OfferSearch(

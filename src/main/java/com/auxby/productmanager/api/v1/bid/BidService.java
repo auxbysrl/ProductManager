@@ -3,11 +3,12 @@ package com.auxby.productmanager.api.v1.bid;
 import com.auxby.productmanager.api.v1.bid.model.BidSummary;
 import com.auxby.productmanager.api.v1.bid.model.PlaceBidRequest;
 import com.auxby.productmanager.api.v1.bid.model.PlaceBidResponse;
+import com.auxby.productmanager.api.v1.bid.repository.Bid;
+import com.auxby.productmanager.api.v1.bid.repository.BidRepository;
 import com.auxby.productmanager.api.v1.offer.OfferService;
 import com.auxby.productmanager.api.v1.offer.model.OfferSummary;
-import com.auxby.productmanager.api.v1.user.UserService;
-import com.auxby.productmanager.entity.Bid;
 import com.auxby.productmanager.api.v1.offer.repository.Offer;
+import com.auxby.productmanager.api.v1.user.UserService;
 import com.auxby.productmanager.api.v1.user.repository.UserDetails;
 import com.auxby.productmanager.exception.ActionNotAllowException;
 import com.auxby.productmanager.exception.BidDeclinedException;
@@ -16,14 +17,11 @@ import com.auxby.productmanager.rabbitmq.MessageSender;
 import com.auxby.productmanager.rabbitmq.message.MessagePayload;
 import com.auxby.productmanager.rabbitmq.message.MessageType;
 import com.auxby.productmanager.utils.DateTimeProcessor;
-import com.auxby.productmanager.utils.enums.CurrencyType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityNotFoundException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -96,7 +94,7 @@ public class BidService {
         if (offer.getOwner().getUsername().equals(user.getUsername())) {
             throw new ActionNotAllowException("Bidding at owned offers is not allowed.");
         }
-        var price = getPrice(offer);
+        var price = offerService.computePrice(offer);
         if (price.compareTo(placeBidRequest.amount()) > 0) {
             throw new ActionNotAllowException("Bid amount cannot be lower than offer price.");
         }
@@ -104,14 +102,6 @@ public class BidService {
                 && (biggestBid.get().getBidValue().compareTo(placeBidRequest.amount()) > -1)) {
             throw new BidDeclinedException("Bid not accepted. A higher bid already in place.", convertToBidSummaryList(offer.getBids()));
         }
-    }
-
-    private BigDecimal getPrice(Offer offer) {
-        CurrencyType displayCurrency = CurrencyType.valueOf(offer.getCurrencyType());
-        if (displayCurrency == CurrencyType.RON) {
-            return offer.getPrice();
-        }
-        return offer.getPrice().divide(CurrencyType.RON_EURO_CONVERSION, RoundingMode.FLOOR);
     }
 
     private Bid getOfferBid(PlaceBidRequest placeBidRequest, UserDetails user, Offer offer) {

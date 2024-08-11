@@ -1,9 +1,9 @@
 package com.auxby.productmanager.scheduler;
 
-import com.auxby.productmanager.api.v1.bid.BidRepository;
+import com.auxby.productmanager.api.v1.bid.repository.BidRepository;
 import com.auxby.productmanager.api.v1.offer.repository.OfferRepository;
 import com.auxby.productmanager.api.v1.user.UserDetailsRepository;
-import com.auxby.productmanager.entity.Bid;
+import com.auxby.productmanager.api.v1.bid.repository.Bid;
 import com.auxby.productmanager.api.v1.offer.repository.Offer;
 import com.auxby.productmanager.api.v1.user.repository.UserDetails;
 import com.auxby.productmanager.rabbitmq.MessageSender;
@@ -90,7 +90,7 @@ class OfferSchedulerTest {
         scheduler.updateOffersTask();
 
         //Assert
-        verify(offerRepository, times(1)).updateExpiredOffers();
+        verify(offerRepository, times(1)).updateExpiredOffers(any());
     }
 
     @Test
@@ -112,7 +112,7 @@ class OfferSchedulerTest {
         when(mockOfferToIgnore.getOwner()).thenReturn(userWithoutCoins);
         when(mockOfferToIgnore.getCoinsToExtend()).thenReturn(100);
 
-        when(offerRepository.getOffersToAutoExtend()).thenReturn(List.of(mockOfferToExtend, mockOfferToIgnore));
+        when(offerRepository.getOffersToAutoExtend(any(), any())).thenReturn(List.of(mockOfferToExtend, mockOfferToIgnore));
 
         //Act
         scheduler.autoExtendOffersTask();
@@ -132,20 +132,27 @@ class OfferSchedulerTest {
     }
 
     @Test
-    void should_setAuctionWinners_When_TaskIsCalled() {
+    void should_setAuctionWinnersAndNotifyThem_When_TaskIsCalled() {
         //Arrange
         var bid1 = new Bid();
         bid1.setBidValue(BigDecimal.valueOf(550));
 
         var bid2 = new Bid();
         bid2.setBidValue(BigDecimal.valueOf(750));
+
+        var owner = mock(UserDetails.class);
         var winner = mock(UserDetails.class);
         bid2.setOwner(winner);
 
         var mockOffer = new Offer();
+        mockOffer.setId(1);
         mockOffer.setOnAuction(true);
+        mockOffer.setName("TestAuction");
         mockOffer.setBids(Set.of(bid1, bid2));
+        mockOffer.setOwner(owner);
+
         when(winner.getId()).thenReturn(10);
+        when(winner.getUsername()).thenReturn("joe@doe@gmail.com");
         when(offerRepository.getAuctionsToClose()).thenReturn(List.of(mockOffer));
 
         //Act
@@ -155,6 +162,43 @@ class OfferSchedulerTest {
         ArgumentCaptor<Set<Bid>> bidsArg = ArgumentCaptor.forClass(Set.class);
         assertAll(
                 () -> verify(bidRepository, times(1)).saveAll(bidsArg.capture()),
+                // check notification was triggered one for winner - one for owner
+                () -> verify(messageSender, times(2)).send(any()),
+                () -> assertEquals(2, bidsArg.getValue().size())
+        );
+    }
+
+    @Test
+    void should_setAuctionWinners_When_TaskIsCalled() {
+        //Arrange
+        var bid1 = new Bid();
+        bid1.setBidValue(BigDecimal.valueOf(550));
+
+        var bid2 = new Bid();
+        bid2.setBidValue(BigDecimal.valueOf(750));
+
+        var winner = mock(UserDetails.class);
+        bid2.setOwner(winner);
+
+        var mockOffer = new Offer();
+        mockOffer.setId(1);
+        mockOffer.setOnAuction(true);
+        mockOffer.setName("TestAuction");
+        mockOffer.setBids(Set.of(bid1, bid2));
+
+        when(winner.getId()).thenReturn(10);
+        when(winner.getUsername()).thenReturn("joe@doe@gmail.com");
+        when(offerRepository.getAuctionsToClose()).thenReturn(List.of(mockOffer));
+
+        //Act
+        scheduler.setAuctionWinners();
+
+        //Assert
+        ArgumentCaptor<Set<Bid>> bidsArg = ArgumentCaptor.forClass(Set.class);
+        assertAll(
+                () -> verify(bidRepository, times(1)).saveAll(bidsArg.capture()),
+                // check notification was triggered one for winner - fail to notify owner but not flow should continue
+                () -> verify(messageSender, times(1)).send(any()),
                 () -> assertEquals(2, bidsArg.getValue().size())
         );
     }

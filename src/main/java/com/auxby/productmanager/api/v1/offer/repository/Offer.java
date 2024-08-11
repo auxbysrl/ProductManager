@@ -1,10 +1,15 @@
 package com.auxby.productmanager.api.v1.offer.repository;
 
+import com.auxby.productmanager.api.v1.bid.repository.Bid;
+import com.auxby.productmanager.api.v1.commun.entity.Address;
+import com.auxby.productmanager.api.v1.commun.entity.Contact;
+import com.auxby.productmanager.api.v1.commun.entity.File;
+import com.auxby.productmanager.api.v1.commun.system_configuration.SystemConfiguration;
 import com.auxby.productmanager.api.v1.user.repository.UserDetails;
-import com.auxby.productmanager.entity.*;
-import com.auxby.productmanager.entity.base.AuxbyBaseEntity;
+import com.auxby.productmanager.api.v1.commun.entity.base.AuxbyBaseEntity;
 import com.auxby.productmanager.utils.enums.ConditionType;
 import com.auxby.productmanager.utils.enums.ContactType;
+import com.auxby.productmanager.utils.enums.CurrencyType;
 import lombok.Data;
 import lombok.ToString;
 import org.hibernate.annotations.Formula;
@@ -56,6 +61,7 @@ public class Offer extends AuxbyBaseEntity {
     private Date promoteExpirationDate;
     @Column(name = "auction_winner")
     private Integer auctionWinner;
+    private String deepLink;
 
     @ToString.Exclude
     @OneToMany(mappedBy = "offer",
@@ -176,6 +182,12 @@ public class Offer extends AuxbyBaseEntity {
         }
     }
 
+    public void computeDBPrice(BigDecimal postPrice, SystemConfiguration configuration) {
+        // In DB all values for price are in RON
+        CurrencyType type = CurrencyType.getCurrencyType(this.currencyType);
+        this.price = type.toRonConversion(postPrice, configuration);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -187,5 +199,17 @@ public class Offer extends AuxbyBaseEntity {
     @Override
     public int hashCode() {
         return getClass().hashCode();
+    }
+
+    public Optional<Bid> getWinner() {
+        return bids.stream()
+                .filter(bid -> bid.getIsWinner() != null && bid.getIsWinner())
+                .findFirst();
+    }
+
+    public Optional<File> getMainImage() {
+        return files.stream()
+                .filter(File::isPrimary)
+                .findFirst();
     }
 }

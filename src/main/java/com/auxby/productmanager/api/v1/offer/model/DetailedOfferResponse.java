@@ -18,6 +18,7 @@ public record DetailedOfferResponse(Long id,
                                     boolean isOnAuction,
                                     BigDecimal price,
                                     String currencyType,
+                                    String currencySymbol,
                                     UserDetails owner,
                                     BigDecimal highestBid,
                                     List<BidInfo> bids,
@@ -30,6 +31,7 @@ public record DetailedOfferResponse(Long id,
                                     boolean isPromoted,
                                     boolean autoExtend,
                                     String condition,
-                                    String phoneNumbers
+                                    String phoneNumbers,
+                                    String deepLink
 ) {
 }

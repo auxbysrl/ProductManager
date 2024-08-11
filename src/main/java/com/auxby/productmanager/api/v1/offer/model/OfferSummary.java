@@ -23,12 +23,14 @@ public record OfferSummary(
         List<BidInfo> bids,
         BigDecimal price,
         String currencyType,
+        String currencySymbol,
         UserDetails owner,
         List<FileInfo> photos,
         Boolean isUserFavorite,
         String condition,
         String status,
         boolean isPromoted,
-        boolean autoExtend
+        boolean autoExtend,
+        String deepLink
 ) {
 }

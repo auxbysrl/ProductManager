@@ -22,8 +22,8 @@ public class UserService {
         return userDetailsRepository.findUserDetailsByUsername(username);
     }
 
-    public void updateUserCoinsNumber(String uuid, Integer numberOfCoins) {
-        userDetailsRepository.updateUserCoinsNumber(uuid, numberOfCoins);
+    public void updateUserCoinsNumber(String username, Integer numberOfCoins) {
+        userDetailsRepository.updateUserCoinsNumber(username, numberOfCoins);
     }
 
     @Transactional

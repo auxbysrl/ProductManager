@@ -1,5 +1,6 @@
 package com.auxby.productmanager.utils.enums;
 
+import com.auxby.productmanager.api.v1.commun.system_configuration.SystemConfiguration;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import lombok.Getter;
 
@@ -13,25 +14,23 @@ import java.util.Objects;
 public enum CurrencyType {
     RON("Ron") {
         @Override
-        public BigDecimal toRonConversion(BigDecimal value) {
-            if (Objects.isNull(value)) {
-                return null;
-            }
-            return value;
+        public String getSymbol() {
+            return "lei";
         }
     },
     EURO("Euro") {
         @Override
-        public BigDecimal toRonConversion(BigDecimal value) {
-            if (Objects.isNull(value)) {
-                return null;
-            }
-            return value.multiply(RON_EURO_CONVERSION);
+        public String getSymbol() {
+            return "€";
+        }
+    },
+    USD("Usd") {
+        @Override
+        public String getSymbol() {
+            return "$";
         }
     };
 
-
-    public static final BigDecimal RON_EURO_CONVERSION = BigDecimal.valueOf(5);
     private final String currency;
 
     CurrencyType(String currency) {
@@ -39,11 +38,11 @@ public enum CurrencyType {
     }
 
     @JsonCreator
-    public static CurrencyType getConditionType(String value) {
+    public static CurrencyType getCurrencyType(String value) {
         return Arrays.stream(CurrencyType.values())
                 .toList()
                 .stream()
-                .filter(v -> v.getCurrency().equals(value))
+                .filter(v -> v.getCurrency().equalsIgnoreCase(value))
                 .findFirst()
                 .orElseThrow(() -> new EntityNotFoundException("Condition type not found for value:" + value));
     }
@@ -53,5 +52,21 @@ public enum CurrencyType {
         return currency;
     }
 
-    public abstract BigDecimal toRonConversion(BigDecimal value);
+    public BigDecimal toRonConversion(BigDecimal value, SystemConfiguration configuration) {
+        if (Objects.isNull(value)) {
+            return null;
+        }
+        BigDecimal rate = BigDecimal.valueOf(Double.parseDouble(configuration.getValue()));
+        return value.multiply(rate).setScale(4, RoundingMode.UP);
+    }
+
+    public BigDecimal getCurrencyPrice(BigDecimal value, SystemConfiguration configuration) {
+        if (Objects.isNull(value)) {
+            return null;
+        }
+        BigDecimal rate = BigDecimal.valueOf(Double.parseDouble(configuration.getValue()));
+        return value.divide(rate, RoundingMode.UP).setScale(4, RoundingMode.UP);
+    }
+
+    public abstract String getSymbol();
 }

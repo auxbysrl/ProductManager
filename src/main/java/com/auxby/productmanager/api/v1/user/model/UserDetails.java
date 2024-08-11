@@ -10,5 +10,6 @@ public record UserDetails(
         String firstName,
         String userName,
         String avatarUrl,
-        Date lastSeen) {
+        Date lastSeen,
+        Integer rating) {
 }

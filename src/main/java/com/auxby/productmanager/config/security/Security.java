@@ -41,6 +41,7 @@ public class Security {
     private static final String[] GET_API_WHITELIST = {
             "/api/v1/product",
             "/api/v1/product/*",
+            "/api/v1/product/generate-deep-link/*",
             "/actuator/health"
     };
 
@@ -74,7 +75,7 @@ public class Security {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "https://auxby-web.onrender.com"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "https://auxby-web.onrender.com", "https://auxby-web-offer-manager-lu7a.onrender.com"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE"));
         configuration.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization"));
         configuration.setAllowCredentials(true);

@@ -1,7 +1,9 @@
 package com.auxby.productmanager.api.v1.offer.specification;
 
+import com.amazonaws.util.StringUtils;
 import com.auxby.productmanager.api.v1.offer.specification.criteria.OfferSearchCriteria;
 import com.auxby.productmanager.api.v1.offer.repository.Offer;
+import com.auxby.productmanager.api.v1.user.repository.UserDetails;
 import lombok.AllArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 import reactor.util.annotation.NonNull;
@@ -22,7 +24,7 @@ public class OfferSpecification implements Specification<Offer> {
                                  @NonNull CriteriaBuilder builder) {
         List<Predicate> predicates = new ArrayList<>();
 
-        if (!searchCriteria.getCategories().isEmpty()) {
+        if (Objects.nonNull(searchCriteria.getCategories()) && !searchCriteria.getCategories().isEmpty()) {
             predicates.add(root.get("categoryId").in(searchCriteria.getCategories()));
         }
         if (!searchCriteria.getIsFixedPriced() && searchCriteria.getIsOnAuction()) {
@@ -36,6 +38,10 @@ public class OfferSpecification implements Specification<Offer> {
         }
         if (searchCriteria.getIsPromotedOnly()) {
             predicates.add(builder.isTrue(root.get("isPromoted")));
+        }
+        if (StringUtils.hasValue(searchCriteria.getUserName())) {
+            Join<Offer, UserDetails> offerAddressJoin = root.join("owner");
+            predicates.add(builder.equal(offerAddressJoin.get("username"), searchCriteria.getUserName()));
         }
         predicates.add(builder.isTrue(root.get("isAvailable")));
 

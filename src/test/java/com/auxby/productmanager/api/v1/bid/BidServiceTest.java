@@ -1,16 +1,16 @@
 package com.auxby.productmanager.api.v1.bid;
 
 import com.auxby.productmanager.api.v1.bid.model.PlaceBidRequest;
+import com.auxby.productmanager.api.v1.bid.repository.Bid;
+import com.auxby.productmanager.api.v1.bid.repository.BidRepository;
 import com.auxby.productmanager.api.v1.offer.OfferService;
+import com.auxby.productmanager.api.v1.offer.repository.Offer;
 import com.auxby.productmanager.api.v1.user.UserService;
 import com.auxby.productmanager.api.v1.user.repository.UserDetails;
-import com.auxby.productmanager.entity.Bid;
-import com.auxby.productmanager.api.v1.offer.repository.Offer;
 import com.auxby.productmanager.exception.ActionNotAllowException;
 import com.auxby.productmanager.exception.BidDeclinedException;
 import com.auxby.productmanager.exception.InsufficientCoinsException;
 import com.auxby.productmanager.rabbitmq.MessageSender;
-import com.auxby.productmanager.utils.enums.CurrencyType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -63,12 +63,12 @@ class BidServiceTest {
         when(mockOffer.getOwner()).thenReturn(mockOwner);
         when(mockOffer.getName()).thenReturn("UnitTest");
         when(mockOffer.getBids()).thenReturn(Set.of(mockBid));
-        when(mockOffer.getPrice()).thenReturn(BigDecimal.valueOf(2000));
-        when(mockOffer.getCurrencyType()).thenReturn(CurrencyType.EURO.name());
+        var price = BigDecimal.valueOf(2300);
 
         var request = new PlaceBidRequest(1, BigDecimal.valueOf(2500), 20);
         when(userService.getUser()).thenReturn(Optional.of(mockUser));
         when(offerService.findAvailableOnAuctionOfferById(anyInt())).thenReturn(mockOffer);
+        when(offerService.computePrice(any())).thenReturn(price);
 
         //Act
         var result = service.createBidForOnAuctionOffer(request);
@@ -100,12 +100,11 @@ class BidServiceTest {
                 .thenReturn(new Date(System.currentTimeMillis() + 100000));
         when(mockOffer.getBids()).thenReturn(new HashSet<>());
         when(mockOffer.getOwner()).thenReturn(mockOwner);
-        when(mockOffer.getPrice()).thenReturn(BigDecimal.valueOf(2000));
-        when(mockOffer.getCurrencyType()).thenReturn(CurrencyType.RON.name());
 
         var request = new PlaceBidRequest(1, BigDecimal.valueOf(2000), 20);
         when(userService.getUser()).thenReturn(Optional.of(mockUser));
         when(offerService.findAvailableOnAuctionOfferById(anyInt())).thenReturn(mockOffer);
+        when(offerService.computePrice(any())).thenReturn(BigDecimal.valueOf(2000));
 
         //Act
         var result = service.createBidForOnAuctionOffer(request);
@@ -155,12 +154,11 @@ class BidServiceTest {
                 .thenReturn(new Date(System.currentTimeMillis() + 100000));
         when(mockOffer.getBids()).thenReturn(new HashSet<>());
         when(mockOffer.getOwner()).thenReturn(mockOwner);
-        when(mockOffer.getPrice()).thenReturn(BigDecimal.valueOf(2000));
-        when(mockOffer.getCurrencyType()).thenReturn(CurrencyType.RON.name());
 
         var request = new PlaceBidRequest(1, BigDecimal.valueOf(1999), 20);
         when(userService.getUser()).thenReturn(Optional.of(mockUser));
         when(offerService.findAvailableOnAuctionOfferById(anyInt())).thenReturn(mockOffer);
+        when(offerService.computePrice(any())).thenReturn(BigDecimal.valueOf(2000));
 
         //Act && Assert
         assertThrows(ActionNotAllowException.class, () -> service.createBidForOnAuctionOffer(request));
@@ -191,12 +189,11 @@ class BidServiceTest {
                 .thenReturn(new Date(System.currentTimeMillis() + 100000));
         when(mockOffer.getBids()).thenReturn(Set.of(mockBid));
         when(mockOffer.getOwner()).thenReturn(mockOwner);
-        when(mockOffer.getPrice()).thenReturn(BigDecimal.valueOf(2000));
-        when(mockOffer.getCurrencyType()).thenReturn(CurrencyType.RON.name());
 
         var request = new PlaceBidRequest(1, BigDecimal.valueOf(2300), 20);
         when(userService.getUser()).thenReturn(Optional.of(mockUser));
         when(offerService.findAvailableOnAuctionOfferById(anyInt())).thenReturn(mockOffer);
+        when(offerService.computePrice(any())).thenReturn(BigDecimal.valueOf(2000));
 
         //Act && Assert
         assertThrows(BidDeclinedException.class, () -> service.createBidForOnAuctionOffer(request));
@@ -224,12 +221,12 @@ class BidServiceTest {
                 .thenReturn(new Date(System.currentTimeMillis() + 100000));
         when(mockOffer.getBids()).thenReturn(Set.of(mockBid));
         when(mockOffer.getOwner()).thenReturn(mockOwner);
-        when(mockOffer.getPrice()).thenReturn(BigDecimal.valueOf(2000));
-        when(mockOffer.getCurrencyType()).thenReturn(CurrencyType.RON.name());
 
-        var request = new PlaceBidRequest(1, BigDecimal.valueOf(2300), 20);
+        var price = BigDecimal.valueOf(2300);
+        var request = new PlaceBidRequest(1, price, 20);
         when(userService.getUser()).thenReturn(Optional.of(mockUser));
         when(offerService.findAvailableOnAuctionOfferById(anyInt())).thenReturn(mockOffer);
+        when(offerService.computePrice(any())).thenReturn(price);
 
         //Act && Assert
         assertThrows(InsufficientCoinsException.class, () -> service.createBidForOnAuctionOffer(request));

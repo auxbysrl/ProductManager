@@ -1,23 +1,25 @@
 package com.auxby.productmanager.api.v1.offer;
 
 import com.auxby.productmanager.api.v1.category.CategoryService;
+import com.auxby.productmanager.api.v1.commun.system_configuration.SystemConfiguration;
+import com.auxby.productmanager.api.v1.commun.system_configuration.SystemConfigurationService;
 import com.auxby.productmanager.api.v1.favorite.FavoriteService;
 import com.auxby.productmanager.api.v1.notification.NotificationService;
+import com.auxby.productmanager.api.v1.offer.repository.Offer;
 import com.auxby.productmanager.api.v1.offer.repository.OfferRepository;
 import com.auxby.productmanager.api.v1.user.UserService;
 import com.auxby.productmanager.api.v1.user.repository.User;
 import com.auxby.productmanager.api.v1.user.repository.UserDetails;
 import com.auxby.productmanager.config.cache.CacheConfiguration;
 import com.auxby.productmanager.config.cache.CacheUtils;
-import com.auxby.productmanager.config.properties.WebClientProps;
 import com.auxby.productmanager.config.security.Role;
-import com.auxby.productmanager.api.v1.offer.repository.Offer;
 import com.auxby.productmanager.rabbitmq.MessageSender;
 import com.auxby.productmanager.utils.enums.ConditionType;
 import com.auxby.productmanager.utils.enums.CurrencyType;
 import com.auxby.productmanager.utils.mapper.OfferMapper;
 import com.auxby.productmanager.utils.mapper.OfferMapperImpl;
 import com.auxby.productmanager.utils.service.AmazonClientService;
+import com.auxby.productmanager.utils.service.BranchIOService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
@@ -37,7 +39,8 @@ import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
@@ -48,8 +51,6 @@ public class OfferServiceCacheTest {
     @MockBean
     private UserService userService;
     @MockBean
-    private WebClientProps webClientProps;
-    @MockBean
     private AmazonClientService awsService;
     @MockBean
     private OfferRepository offerRepository;
@@ -59,6 +60,10 @@ public class OfferServiceCacheTest {
     private FavoriteService favoriteService;
     @MockBean
     private NotificationService notificationService;
+    @MockBean
+    private SystemConfigurationService systemConfiguration;
+    @MockBean
+    private BranchIOService branchIOService;
     @Autowired
     private CacheUtils cacheUtils;
     @Spy
@@ -83,6 +88,9 @@ public class OfferServiceCacheTest {
         var mockOffer = mockOffer();
         when(offerRepository.findPromotedOffersExcluding(anySet())).thenReturn(new ArrayList<>(Collections.nCopies(5, mockOffer)));
         when(userService.getUserFavoriteOffersIds(anyString())).thenReturn(List.of());
+        when(systemConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
 
         //Act
         var firstResult = offerService.getPromotedOffers();

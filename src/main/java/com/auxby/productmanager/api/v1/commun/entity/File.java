@@ -1,7 +1,7 @@
-package com.auxby.productmanager.entity;
+package com.auxby.productmanager.api.v1.commun.entity;
 
 import com.auxby.productmanager.api.v1.offer.repository.Offer;
-import com.auxby.productmanager.entity.base.AuxbyBaseEntity;
+import com.auxby.productmanager.api.v1.commun.entity.base.AuxbyBaseEntity;
 import lombok.Data;
 
 import javax.persistence.*;

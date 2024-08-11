@@ -10,7 +10,8 @@ public enum MessageType {
     AUCTION_WON("You won auction for ${OFFER_NAME}.", "Auction won."),
     AUCTION_ENDED("The auction for ${OFFER_NAME} has ended.", "Auction ended."),
     AUCTION_INTERRUPTED("The auction for ${OFFER_NAME} has ended by it's owner.", "Auction ended."),
-    ACTION_FAILED("Fail to perform action ${ACTION}", "Action failed.");
+    ACTION_FAILED("Fail to perform action ${ACTION}", "Action failed."),
+    OFFER_EXPIRATION("Offer ${OFFER_NAME} is about to expire.", "Offer is about to expire.");
 
     private final String messageTemplate;
     private final String title;

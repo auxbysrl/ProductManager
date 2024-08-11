@@ -1,6 +1,5 @@
-package com.auxby.productmanager.api.v1.bid;
+package com.auxby.productmanager.api.v1.bid.repository;
 
-import com.auxby.productmanager.entity.Bid;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;

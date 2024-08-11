@@ -1,7 +1,8 @@
 server:
   port: 8082
   ssl:
-    key-store: classpath:cert/auxbyCert.p12
+#    key-store: classpath:cert/auxbyCert.p12
+    key-store: classpath:cert/auxbyCertSandbox.p12
     key-store-password: passwordAuxby
     key-store-type: PKCS12
     key-alias: auxbycertificate
@@ -24,8 +25,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MariaDBDialect
-        format_sql: true
-    show-sql: true
+        format_sql: false
+    show-sql: false
   servlet:
     multipart:
       max-file-size: 25MB
@@ -36,6 +37,7 @@ spring:
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASS}
 application:
+  branch: ${BRANCH_KEY}
   security:
     jwt:
       secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
@@ -57,7 +59,3 @@ management:
 springdoc:
   swagger-ui:
     operations-sorter: method
-
-web-client:
-  base-url: https://${AUXBY_PLATFORM_URL}
-  category-url: /api/v1/category

@@ -1,12 +1,11 @@
 package com.auxby.productmanager.api.v1.notification.repository;
 
 
-import com.auxby.productmanager.entity.base.AuxbyBaseEntity;
+import com.auxby.productmanager.api.v1.commun.entity.base.AuxbyBaseEntity;
 import lombok.Data;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import java.sql.Date;
 

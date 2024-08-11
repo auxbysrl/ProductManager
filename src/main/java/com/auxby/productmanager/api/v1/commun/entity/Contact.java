@@ -1,8 +1,8 @@
-package com.auxby.productmanager.entity;
+package com.auxby.productmanager.api.v1.commun.entity;
 
+import com.auxby.productmanager.api.v1.commun.entity.base.AuxbyBaseEntity;
 import com.auxby.productmanager.api.v1.offer.repository.Offer;
 import com.auxby.productmanager.api.v1.user.repository.UserDetails;
-import com.auxby.productmanager.entity.base.AuxbyBaseEntity;
 import com.auxby.productmanager.utils.enums.ContactType;
 import lombok.Data;
 

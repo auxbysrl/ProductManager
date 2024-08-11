@@ -1,20 +1,27 @@
 package com.auxby.productmanager.api.v1.offer;
 
+import com.auxby.productmanager.api.v1.bid.repository.Bid;
 import com.auxby.productmanager.api.v1.category.CategoryService;
+import com.auxby.productmanager.api.v1.commun.entity.Address;
+import com.auxby.productmanager.api.v1.commun.entity.Contact;
+import com.auxby.productmanager.api.v1.commun.entity.File;
+import com.auxby.productmanager.api.v1.commun.system_configuration.SystemConfiguration;
+import com.auxby.productmanager.api.v1.commun.system_configuration.SystemConfigurationService;
 import com.auxby.productmanager.api.v1.favorite.FavoriteService;
 import com.auxby.productmanager.api.v1.notification.NotificationService;
 import com.auxby.productmanager.api.v1.offer.model.*;
 import com.auxby.productmanager.api.v1.offer.repository.Offer;
 import com.auxby.productmanager.api.v1.offer.repository.OfferRepository;
+import com.auxby.productmanager.api.v1.offer.specification.AdvancedOfferSpecification;
 import com.auxby.productmanager.api.v1.offer.specification.OfferSpecification;
+import com.auxby.productmanager.api.v1.offer.specification.criteria.OfferSearch;
 import com.auxby.productmanager.api.v1.offer.specification.criteria.OfferSearchCriteria;
+import com.auxby.productmanager.api.v1.offer.specification.criteria.filter.PriceFilter;
 import com.auxby.productmanager.api.v1.user.UserService;
 import com.auxby.productmanager.api.v1.user.repository.User;
 import com.auxby.productmanager.api.v1.user.repository.UserDetails;
 import com.auxby.productmanager.config.cache.CacheUtils;
-import com.auxby.productmanager.config.properties.WebClientProps;
 import com.auxby.productmanager.config.security.Role;
-import com.auxby.productmanager.entity.*;
 import com.auxby.productmanager.exception.ActionNotAllowException;
 import com.auxby.productmanager.exception.InsufficientCoinsException;
 import com.auxby.productmanager.exception.PhotoUploadException;
@@ -24,7 +31,10 @@ import com.auxby.productmanager.rabbitmq.message.MessageType;
 import com.auxby.productmanager.utils.enums.*;
 import com.auxby.productmanager.utils.mapper.OfferMapper;
 import com.auxby.productmanager.utils.service.AmazonClientService;
+import com.auxby.productmanager.utils.service.BranchIOService;
 import lombok.SneakyThrows;
+import mock.OfferTestMock;
+import org.apache.coyote.BadRequestException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +55,7 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.persistence.EntityNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -63,8 +74,6 @@ class OfferServiceTest {
     @Mock
     private UserService userService;
     @Mock
-    private WebClientProps webClientProps;
-    @Mock
     private AmazonClientService awsService;
     @Mock
     private OfferRepository offerRepository;
@@ -76,6 +85,10 @@ class OfferServiceTest {
     private NotificationService notificationService;
     @Mock
     private CacheUtils cacheUtils;
+    @Mock
+    private SystemConfigurationService sysConfiguration;
+    @Mock
+    private BranchIOService branchIOService;
     @Spy
     private OfferMapper offerMapper = Mappers.getMapper(OfferMapper.class);
 
@@ -94,8 +107,14 @@ class OfferServiceTest {
     void getAllOffers() {
         when(offerRepository.findAll(any(OfferSpecification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(Collections.nCopies(1, mockOffer(true, true, true))));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
 
+        //Act
         var result = offerService.getAllOffers(PageRequest.of(0, 10), new OfferSearchCriteria());
+
+        //Assert
         ArgumentCaptor<Pageable> pageArg = ArgumentCaptor.forClass(Pageable.class);
         ArgumentCaptor<OfferSpecification> specArg = ArgumentCaptor.forClass(OfferSpecification.class);
         verify(offerRepository, times(1))
@@ -109,6 +128,9 @@ class OfferServiceTest {
     void getOffersByIds() {
         when(offerRepository.findAllByIdIn(anyList()))
                 .thenReturn(Collections.nCopies(1, mockOffer(true, false, true)));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
 
         var result = offerService.getOffersByIds(List.of(1, 2));
         ArgumentCaptor<List<Integer>> idsArg = ArgumentCaptor.forClass(List.class);
@@ -122,6 +144,9 @@ class OfferServiceTest {
     void getAllUserOffers() {
         when(offerRepository.findByOwner_Username(anyString()))
                 .thenReturn(Collections.nCopies(1, mockOffer(false, true, false)));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
 
         var result = offerService.getAllUserOffers("uuid");
         ArgumentCaptor<String> uuidArg = ArgumentCaptor.forClass(String.class);
@@ -136,6 +161,9 @@ class OfferServiceTest {
         var mockOffer = mockOffer(true, true, true);
         when(offerRepository.findOfferById(anyInt()))
                 .thenReturn(Optional.of(mockOffer));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
 
         var result = offerService.getOfferById(1, false);
         ArgumentCaptor<Integer> idArg = ArgumentCaptor.forClass(Integer.class);
@@ -160,6 +188,9 @@ class OfferServiceTest {
         var mockOffer = mockOffer(true, true, true);
         when(offerRepository.findOfferById(anyInt()))
                 .thenReturn(Optional.of(mockOffer));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
 
         //Act
         var result = offerService.getOfferById(1, true);
@@ -196,10 +227,14 @@ class OfferServiceTest {
                 .thenReturn(Optional.of(mockUser));
         when(offerRepository.save(any()))
                 .thenReturn(mockOffer);
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
+
         var mockContact = new ContactInfo("0750200100", "testLocation");
         var mockOfferInfo = new OfferInfo("Test", "", ConditionType.USED, 1L,
                 OfferType.FIXED_PRICE, BigDecimal.valueOf(5000), CurrencyType.RON,
-                new Timestamp(System.currentTimeMillis()), mockContact, List.of(), 50, false);
+                new Timestamp(System.currentTimeMillis()), mockContact, List.of(), 50, false, "");
         var result = offerService.createOffer(mockOfferInfo);
         assertNotNull(result);
         assertEquals(mockOffer.getName(), result.title());
@@ -225,15 +260,19 @@ class OfferServiceTest {
                 .thenReturn(Optional.of(mockUser));
         when(offerRepository.save(any()))
                 .thenReturn(mockOffer);
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("5")
+                .build());
         var mockContact = new ContactInfo("0750200100", "testLocation");
+        BigDecimal postPrice = BigDecimal.valueOf(8000);
         var mockOfferInfo = new OfferInfo("BMW", "This is a used car.", ConditionType.USED, 1L,
-                OfferType.FIXED_PRICE, BigDecimal.valueOf(8000), CurrencyType.EURO,
-                new Timestamp(System.currentTimeMillis()), mockContact, mockListOfDetailsForACar("177"), 50, false);
+                OfferType.FIXED_PRICE, postPrice, CurrencyType.EURO,
+                new Timestamp(System.currentTimeMillis()), mockContact, mockListOfDetailsForACar("177"), 50, false, "");
         var result = offerService.createOffer(mockOfferInfo);
         assertNotNull(result);
         assertEquals(mockOffer.getName(), result.title());
         assertEquals(mockOffer.getDescription(), result.description());
-        assertEquals(mockOffer.getPrice(), result.price());
+        assertEquals(BigDecimal.valueOf(20).setScale(4, RoundingMode.UP), result.price());
         assertEquals(mockOffer.getCategoryId(), result.categoryId());
         assertEquals(mockOffer.getCurrencyType(), result.currencyType());
         assertEquals(mockOffer.getOwner().getUsername(), result.owner().userName());
@@ -244,6 +283,7 @@ class OfferServiceTest {
         assertNotNull(saveOfferArg.getValue().getExpirationDate());
         assertNotNull(saveOfferArg.getValue().getPublishDate());
         assertTrue(saveOfferArg.getValue().getPublishDate().before(saveOfferArg.getValue().getExpirationDate()));
+        assertEquals(postPrice.multiply(BigDecimal.valueOf(5).setScale(4, RoundingMode.UP)), saveOfferArg.getValue().getPrice());
     }
 
     @Test
@@ -254,15 +294,19 @@ class OfferServiceTest {
                 .thenReturn(Optional.of(mockUser));
         when(offerRepository.save(any()))
                 .thenReturn(mockOffer);
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("5")
+                .build());
+
         var mockContact = new ContactInfo("0750200100", "testLocation");
         var mockOfferInfo = new OfferInfo("BMW", "This is a used car.", ConditionType.USED, 1L,
                 OfferType.FIXED_PRICE, BigDecimal.valueOf(8000), CurrencyType.EURO,
-                new Timestamp(System.currentTimeMillis()), mockContact, mockListOfDetailsForACar("177.5"), 50, false);
+                new Timestamp(System.currentTimeMillis()), mockContact, mockListOfDetailsForACar("177.5"), 50, false, "");
         var result = offerService.createOffer(mockOfferInfo);
         assertNotNull(result);
         assertEquals(mockOffer.getName(), result.title());
         assertEquals(mockOffer.getDescription(), result.description());
-        assertEquals(mockOffer.getPrice(), result.price());
+        assertEquals(BigDecimal.valueOf(20).setScale(4, RoundingMode.UP), result.price());
         assertEquals(mockOffer.getCategoryId(), result.categoryId());
         assertEquals(mockOffer.getCurrencyType(), result.currencyType());
         assertEquals(mockOffer.getOwner().getUsername(), result.owner().userName());
@@ -284,11 +328,15 @@ class OfferServiceTest {
                 .thenReturn(Optional.of(mockUser));
         when(offerRepository.save(any()))
                 .thenReturn(mockOffer);
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
+
         var mockContact = new ContactInfo("0750200100", "testLocation");
         var detail = new CategoryDetails("10", "Test Detail");
         var mockOfferInfo = new OfferInfo("Test", "", ConditionType.USED, 1L,
                 OfferType.AUCTION, BigDecimal.valueOf(5000), CurrencyType.RON,
-                new Timestamp(LocalDateTime.now().plusDays(30).toInstant(ZoneOffset.UTC).toEpochMilli()), mockContact, List.of(detail), 50, false);
+                new Timestamp(LocalDateTime.now().plusDays(30).toInstant(ZoneOffset.UTC).toEpochMilli()), mockContact, List.of(detail), 50, false, "");
         var result = offerService.createOffer(mockOfferInfo);
         assertNotNull(result);
         assertEquals(mockOffer.getName(), result.title());
@@ -315,10 +363,13 @@ class OfferServiceTest {
                 .thenReturn(Optional.of(mockUser));
         when(offerRepository.save(any()))
                 .thenReturn(mockOffer);
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
         var mockContact = new ContactInfo("0750200100", "testLocation");
         var mockOfferInfo = new OfferInfo("Test", "", ConditionType.USED, 1L,
                 OfferType.FIXED_PRICE, BigDecimal.valueOf(5000), CurrencyType.RON,
-                new Timestamp(System.currentTimeMillis()), mockContact, null, 50, false);
+                new Timestamp(System.currentTimeMillis()), mockContact, null, 50, false, "");
         var result = offerService.createOffer(mockOfferInfo);
         assertNotNull(result);
         assertEquals(mockOffer.getName(), result.title());
@@ -338,7 +389,7 @@ class OfferServiceTest {
         var mockContact = new ContactInfo("0750200100", "testLocation");
         var mockOfferInfo = new OfferInfo("Test", "", ConditionType.USED, 1L,
                 OfferType.FIXED_PRICE, BigDecimal.valueOf(5000), CurrencyType.RON,
-                new Timestamp(System.currentTimeMillis()), mockContact, null, 10, false);
+                new Timestamp(System.currentTimeMillis()), mockContact, null, 10, false, "");
         assertThrows(EntityNotFoundException.class, () -> offerService.createOffer(mockOfferInfo));
     }
 
@@ -348,10 +399,14 @@ class OfferServiceTest {
         mockUser.setAvailableCoins(10);
         when(userService.getUser())
                 .thenReturn(Optional.of(mockUser));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
+
         var mockContact = new ContactInfo("0750200100", "testLocation");
         var mockOfferInfo = new OfferInfo("Test", "", ConditionType.USED, 1L,
                 OfferType.FIXED_PRICE, BigDecimal.valueOf(5000), CurrencyType.RON,
-                new Timestamp(System.currentTimeMillis()), mockContact, null, 50, false);
+                new Timestamp(System.currentTimeMillis()), mockContact, null, 50, false, "");
         assertThrows(InsufficientCoinsException.class, () -> offerService.createOffer(mockOfferInfo));
     }
 
@@ -361,6 +416,10 @@ class OfferServiceTest {
         var mockOffer = mockOffer(false, false, false);
         when(offerRepository.findByIdAndOwner_Username(anyInt(), anyString()))
                 .thenReturn(Optional.of(mockOffer));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
+
         UpdateOfferInfo mockOfferInfo = mockUpdateOfferInfoDto();
 
         var result = offerService.updateProduct(mockOfferInfo, 1, "uuid");
@@ -378,6 +437,10 @@ class OfferServiceTest {
         var mockOffer = mockOffer(false, false, false);
         when(offerRepository.findByIdAndOwner_Username(anyInt(), anyString()))
                 .thenReturn(Optional.of(mockOffer));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
+
         UpdateOfferInfo mockOfferInfo = new UpdateOfferInfo("Test", "Test Description", ConditionType.USED,
                 BigDecimal.valueOf(5000), CurrencyType.RON, new ContactInfo("0751000200", "SV"), null);
 
@@ -418,6 +481,11 @@ class OfferServiceTest {
                 .thenReturn(mock(java.io.File.class));
         when(awsService.uploadPhoto(any(), anyString(), anyInt()))
                 .thenReturn("https://s3/bucket/img");
+        when(sysConfiguration.getAllowedFilesNumber()).thenReturn(8);
+        when(branchIOService.createDeepLink(anyInt(), anyString(), anyString()))
+                .thenReturn("https://test.com");
+
+
         var files = Collections.nCopies(2, mock(MultipartFile.class)).toArray(new MultipartFile[0]);
         var result = offerService.uploadOfferImages(1, files, "uuid");
 
@@ -440,6 +508,7 @@ class OfferServiceTest {
                 .thenReturn(Optional.of(mockOffer(false, false, true)));
         when(awsService.convertToFile(any()))
                 .thenThrow(new IOException("Test exception"));
+        when(sysConfiguration.getAllowedFilesNumber()).thenReturn(8);
 
         var files = Collections.nCopies(2, mock(MultipartFile.class)).toArray(new MultipartFile[0]);
         assertThrows(PhotoUploadException.class, () -> offerService.uploadOfferImages(1, files, "uuid"));
@@ -603,6 +672,9 @@ class OfferServiceTest {
         when(cacheUtils.getCachedOfferIds()).thenReturn(Set.of(10, 200));
         when(offerRepository.findPromotedOffersExcluding(anySet())).thenReturn(Collections.nCopies(5, mockOffer));
         when(userService.getUserFavoriteOffersIds(anyString())).thenReturn(List.of());
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
 
         //Act
         var result = offerService.getPromotedOffers();
@@ -622,6 +694,9 @@ class OfferServiceTest {
         when(offerRepository.findPromotedOffersExcluding(anySet())).thenReturn(new ArrayList<>(Collections.nCopies(3, mockOffer)));
         when(offerRepository.getRandomOffersExcluding(anySet(), anyInt())).thenReturn(new ArrayList<>(Collections.nCopies(2, mockOffer)));
         when(userService.getUserFavoriteOffersIds(anyString())).thenReturn(List.of());
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
 
         //Act
         var result = offerService.getPromotedOffers();
@@ -642,6 +717,9 @@ class OfferServiceTest {
         when(offerRepository.getRandomOffersExcluding(anySet(), anyInt())).thenReturn(new ArrayList<>(Collections.nCopies(0, mockOffer).stream().toList()));
         when(offerRepository.findAllByIdIn(anyList())).thenReturn(Collections.nCopies(2, mockOffer).stream().toList());
         when(userService.getUserFavoriteOffersIds(anyString())).thenReturn(List.of());
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
 
         //Act
         var result = offerService.getPromotedOffers();
@@ -676,6 +754,64 @@ class OfferServiceTest {
         assertThrows(EntityNotFoundException.class, () -> offerService.findAvailableOnAuctionOfferById(1));
     }
 
+    @Test
+    void should_ThrowException_WhenPriceFilterIsSetWrong() {
+        //Arrange
+        var searchCriteria = new OfferSearch(OfferTestMock.OFFER_CATEGORIES, null, OfferTestMock.OFFER_TITLE, null,
+                new PriceFilter(BigDecimal.valueOf(200L), BigDecimal.valueOf(100L), null), null, null);
+        //Act
+        assertThrows(BadRequestException.class, () -> offerService.advancedSearch(searchCriteria));
+    }
+
+    @Test
+    @SneakyThrows
+    void should_ReturnListOfEntities_WhenFiltersAreSet() {
+        //Arrange
+        var searchCriteria = new OfferSearch(OfferTestMock.OFFER_CATEGORIES, null, OfferTestMock.OFFER_TITLE, null,
+                new PriceFilter(BigDecimal.valueOf(200L), BigDecimal.valueOf(100L), CurrencyType.EURO), null, null);
+        when(offerRepository.findAll(any(AdvancedOfferSpecification.class)))
+                .thenReturn(Collections.nCopies(5, mockOffer(true, true, true)));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
+
+        //Act
+        var result = offerService.advancedSearch(searchCriteria);
+
+        //Assert
+        ArgumentCaptor<String> currencyArg = ArgumentCaptor.forClass(String.class);
+        assertAll(
+                () -> assertEquals(5, result.size()),
+                () -> verify(sysConfiguration, times(6)).getSystemCurrency(currencyArg.capture()),
+                () -> assertEquals(CurrencyType.EURO.name(), currencyArg.getAllValues().get(0))
+        );
+    }
+
+    @Test
+    @SneakyThrows
+    void should_ReturnListOfEntities_WhenFiltersAreSetWithoutPrice() {
+        //Arrange
+        var searchCriteria = new OfferSearch(OfferTestMock.OFFER_CATEGORIES, null, OfferTestMock.OFFER_TITLE, null,
+                null, null, null);
+        when(offerRepository.findAll(any(AdvancedOfferSpecification.class)))
+                .thenReturn(Collections.nCopies(5, mockOffer(true, true, true)));
+        when(sysConfiguration.getSystemCurrency(anyString())).thenReturn(SystemConfiguration.builder()
+                .value("1")
+                .build());
+
+        //Act
+        var result = offerService.advancedSearch(searchCriteria);
+
+        //Assert
+        ArgumentCaptor<String> currencyArg = ArgumentCaptor.forClass(String.class);
+        assertAll(
+                () -> assertEquals(5, result.size()),
+                () -> verify(sysConfiguration, times(5)).getSystemCurrency(currencyArg.capture()),
+                () -> assertEquals(CurrencyType.RON.name(), currencyArg.getAllValues().get(0))
+        );
+    }
+
+
     private void assertCoinsChargeActionIsPerformed(UserDetails mockUser) {
         ArgumentCaptor<String> uuidArg = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Integer> remainingCoinsArg = ArgumentCaptor.forClass(Integer.class);
@@ -687,9 +823,18 @@ class OfferServiceTest {
     private Offer mockOffer(boolean addAddress,
                             boolean addContact,
                             boolean addFile) {
+        return mockOffer(CurrencyType.RON.name(), addAddress, addContact, addFile);
+    }
+
+    private Offer mockOffer(
+            String currency,
+            boolean addAddress,
+            boolean addContact,
+            boolean addFile
+    ) {
         Offer offer = new Offer();
         offer.setId(1);
-        offer.setPrice(BigDecimal.valueOf(100));
+        offer.setPrice(BigDecimal.valueOf(100).setScale(4, RoundingMode.UP));
         offer.setName("Test Item");
         offer.setDescription("This is a test.");
         offer.setCondition(ConditionType.NEW);
@@ -697,7 +842,7 @@ class OfferServiceTest {
         offer.setOnAuction(false);
         offer.setOwner(mockUser(1, "test-uuid"));
         offer.setAvailable(true);
-        offer.setCurrencyType(CurrencyType.RON.name());
+        offer.setCurrencyType(currency);
         offer.setPublishDate(new Date());
         if (addAddress) {
             Address address = mockAddress();
@@ -751,7 +896,7 @@ class OfferServiceTest {
     private File mockFile() {
         File file = new File();
         file.setId(1);
-        file.setUrl("url");
+        file.setUrl("link");
         file.setPrimary(true);
 
         return file;

@@ -1,6 +1,7 @@
 package com.auxby.productmanager.api.v1.offer;
 
 import com.auxby.productmanager.api.v1.commun.SuccessResponse;
+import com.auxby.productmanager.api.v1.commun.dto.DeepLinkResponse;
 import com.auxby.productmanager.api.v1.offer.model.*;
 import com.auxby.productmanager.api.v1.offer.specification.criteria.OfferSearch;
 import com.auxby.productmanager.api.v1.offer.specification.criteria.OfferSearchCriteria;
@@ -10,10 +11,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.coyote.BadRequestException;
 import org.springdoc.api.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -97,7 +98,7 @@ public class OfferController {
     }
 
     @PostMapping("/search")
-    public List<OfferSummary> advancedSearch(@RequestBody OfferSearch searchCriteria) {
+    public List<OfferSummary> advancedSearch(@RequestBody OfferSearch searchCriteria) throws BadRequestException {
         log.info("POST - advanced search by criteria:{}", searchCriteria);
         return offerService.advancedSearch(searchCriteria);
     }
@@ -136,5 +137,11 @@ public class OfferController {
     public boolean deleteProductById(@PathVariable Integer id) {
         log.info("DELETE - product by id:{}", id);
         return offerService.deleteOffer(id, SecurityContextUtil.getUsername());
+    }
+
+    @GetMapping("/generate-deep-link/{offerId}")
+    public DeepLinkResponse generateDeepLink(@PathVariable Integer offerId) {
+        log.info("GET - generate deep link for offerId:{}", offerId);
+        return new DeepLinkResponse(offerService.generateDeepLink(offerId));
     }
 }

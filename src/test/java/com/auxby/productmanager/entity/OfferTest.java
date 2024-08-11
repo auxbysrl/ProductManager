@@ -1,6 +1,11 @@
 package com.auxby.productmanager.entity;
 
+import com.auxby.productmanager.api.v1.bid.repository.Bid;
+import com.auxby.productmanager.api.v1.commun.entity.Address;
+import com.auxby.productmanager.api.v1.commun.entity.Contact;
+import com.auxby.productmanager.api.v1.commun.entity.File;
 import com.auxby.productmanager.api.v1.offer.repository.Offer;
+import com.auxby.productmanager.api.v1.offer.repository.OfferData;
 import com.auxby.productmanager.utils.enums.ConditionType;
 import com.auxby.productmanager.utils.enums.ContactType;
 import org.junit.jupiter.api.Test;

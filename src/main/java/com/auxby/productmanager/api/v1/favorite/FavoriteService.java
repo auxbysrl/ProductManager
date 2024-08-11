@@ -1,6 +1,5 @@
 package com.auxby.productmanager.api.v1.favorite;
 
-import com.auxby.productmanager.entity.Favorite;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;

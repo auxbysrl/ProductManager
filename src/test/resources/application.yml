@@ -1,3 +1,5 @@
+server:
+  port: 8090
 spring:
   jpa:
     properties:
@@ -5,18 +7,11 @@ spring:
         format_sql: true
         show_sql: true
     show-sql: true
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: https://auxby-keycloak.test.com/auth/realms/Test
-          jwk-set-uri: https://auxby-keycloak.test.com/auth/realms/Test/protocol/openid-connect/certs
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka
-  password: password
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      max-lifetime: 800000 #
 
 aws:
   region: test
@@ -24,4 +19,3 @@ aws:
   accessKey: test
   secretKey: test
   endpoint: test
-

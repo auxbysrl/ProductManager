@@ -19,13 +19,7 @@ required to support all Auxby features related to products.
     * ${DB_NAME} - the database name
     * ${DB_USER} - the database username
     * ${DB_PASSWORD} - the database password
-    * ${PRODUCT_DOMAIN_NAME} - the domain name (e.g: localhost)
-    * ${EUREKA_URL} - the eureka URL
-    * ${EUREKA_USER_PASSWORD} - password used by eureka
 
-# Deployment
-
-* From Heroku select the branch and click deploy branch
 
 # Deploy on PROD
 - connect to VPS server using **SSH**

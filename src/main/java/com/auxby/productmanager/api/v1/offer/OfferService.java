@@ -1,11 +1,18 @@
 package com.auxby.productmanager.api.v1.offer;
 
+import com.auxby.productmanager.api.v1.bid.repository.Bid;
 import com.auxby.productmanager.api.v1.category.CategoryService;
 import com.auxby.productmanager.api.v1.category.dto.CategoryInfoDto;
+import com.auxby.productmanager.api.v1.commun.entity.Address;
+import com.auxby.productmanager.api.v1.commun.entity.Contact;
+import com.auxby.productmanager.api.v1.commun.entity.base.AuxbyBaseEntity;
+import com.auxby.productmanager.api.v1.commun.system_configuration.SystemConfiguration;
+import com.auxby.productmanager.api.v1.commun.system_configuration.SystemConfigurationService;
 import com.auxby.productmanager.api.v1.favorite.FavoriteService;
 import com.auxby.productmanager.api.v1.notification.NotificationService;
 import com.auxby.productmanager.api.v1.offer.model.*;
 import com.auxby.productmanager.api.v1.offer.repository.Offer;
+import com.auxby.productmanager.api.v1.offer.repository.OfferData;
 import com.auxby.productmanager.api.v1.offer.repository.OfferRepository;
 import com.auxby.productmanager.api.v1.offer.specification.AdvancedOfferSpecification;
 import com.auxby.productmanager.api.v1.offer.specification.OfferSpecification;
@@ -14,10 +21,8 @@ import com.auxby.productmanager.api.v1.offer.specification.criteria.OfferSearchC
 import com.auxby.productmanager.api.v1.user.UserService;
 import com.auxby.productmanager.api.v1.user.repository.UserDetails;
 import com.auxby.productmanager.config.cache.CacheUtils;
-import com.auxby.productmanager.entity.*;
-import com.auxby.productmanager.entity.base.AuxbyBaseEntity;
 import com.auxby.productmanager.exception.ActionNotAllowException;
-import com.auxby.productmanager.exception.AuxbyAuthenticationException;
+import com.auxby.productmanager.exception.DeepLinkGenerationException;
 import com.auxby.productmanager.exception.InsufficientCoinsException;
 import com.auxby.productmanager.exception.PhotoUploadException;
 import com.auxby.productmanager.rabbitmq.MessageSender;
@@ -32,20 +37,22 @@ import com.auxby.productmanager.utils.enums.OfferStatus;
 import com.auxby.productmanager.utils.enums.OfferType;
 import com.auxby.productmanager.utils.mapper.OfferMapper;
 import com.auxby.productmanager.utils.service.AmazonClientService;
+import com.auxby.productmanager.utils.service.BranchIOService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.coyote.BadRequestException;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.persistence.EntityNotFoundException;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -68,6 +75,8 @@ public class OfferService {
     private final NotificationService notificationService;
     private final CategoryService categoryService;
     private final CacheUtils cacheUtils;
+    private final SystemConfigurationService sysConfiguration;
+    private final BranchIOService branchIOService;
 
     public SimplePage<OfferSummary> getAllOffers(Pageable pageable, OfferSearchCriteria searchCriteria) {
         Page<Offer> page = offerRepository.findAll(new OfferSpecification(searchCriteria), pageable);
@@ -105,8 +114,8 @@ public class OfferService {
 
         try {
             notificationService.deleteOfferNotifications(offer.getId());
-        } catch (AuxbyAuthenticationException e) {
-            log.info("Guest user.");
+        } catch (Exception ex) {
+            log.info("Failed to delete notifications for offer:" + offer.getName());
         }
 
         if (increaseView) {
@@ -145,7 +154,7 @@ public class OfferService {
             throw new ActionNotAllowException();
         }
         offer.setName(offerInfo.title());
-        offer.setPrice(offerInfo.currencyType().toRonConversion(offerInfo.price()));
+        offer.computeDBPrice(offerInfo.price(), sysConfiguration.getSystemCurrency(offerInfo.currencyType().name()));
         offer.setDescription(offerInfo.description());
         offer.setCondition(offerInfo.conditionType());
         offer.setCurrencyType(offerInfo.currencyType().name());
@@ -194,26 +203,26 @@ public class OfferService {
                                      MultipartFile[] files,
                                      String userUuid) {
         Offer offer = getOwnerOfferById(offerId, userUuid);
-        List<com.auxby.productmanager.entity.File> existingOfferImages = new ArrayList<>(offer.getFiles());
-        if (files.length > 6) {
+        List<com.auxby.productmanager.api.v1.commun.entity.File> existingOfferImages = new ArrayList<>(offer.getFiles());
+        if (files.length > sysConfiguration.getAllowedFilesNumber()) {
             throw new PhotoUploadException("Offer images is limit to 6 photos.");
         }
         awsService.deleteOfferResources(userUuid, offerId);
-        List<com.auxby.productmanager.entity.File> offerImages = new ArrayList<>();
-        Arrays.stream(files)
-                .forEach(photo -> {
-                    String url = processImage(offerId, userUuid, photo);
-                    com.auxby.productmanager.entity.File file = getOfferImage(offerImages, photo, url);
-                    offerImages.add(file);
-                });
+        List<com.auxby.productmanager.api.v1.commun.entity.File> offerImages = uploadImages(offerId, files, userUuid);
         var primary = offerImages.stream()
-                .filter(com.auxby.productmanager.entity.File::isPrimary)
+                .filter(com.auxby.productmanager.api.v1.commun.entity.File::isPrimary)
                 .findFirst();
         if (primary.isEmpty()) {
             offerImages.get(0).setPrimary(true);
         }
         offerImages.forEach(offer::addFile);
         existingOfferImages.forEach(offer::removeFile);
+        try {
+            var deepLink = generateDeepLink(offerId, offer);
+            offer.setDeepLink(deepLink);
+        } catch (DeepLinkGenerationException e) {
+            log.info("Fail to generate deep link for offer:{}", offer.getName());
+        }
 
         return true;
     }
@@ -266,8 +275,14 @@ public class OfferService {
                 .orElseThrow(() -> new EntityNotFoundException("Valid on auction offer not found with key:" + id));
     }
 
-    public List<OfferSummary> advancedSearch(OfferSearch searchCriteria) {
-        AdvancedOfferSpecification specification = new AdvancedOfferSpecification(searchCriteria);
+    public List<OfferSummary> advancedSearch(OfferSearch searchCriteria) throws BadRequestException {
+        validateSearchCriteria(searchCriteria);
+        SystemConfiguration configuredCurrency = (searchCriteria.priceFilter() != null)
+                ? sysConfiguration.getSystemCurrency(searchCriteria.priceFilter().currencyType().name())
+                : null;
+
+        AdvancedOfferSpecification specification = new AdvancedOfferSpecification(searchCriteria, configuredCurrency);
+
         var offers = offerRepository.findAll(specification);
         List<Integer> userFavoriteOffers = getFavoriteOffersIds(offers);
 
@@ -308,27 +323,6 @@ public class OfferService {
         offer.setPromoteExpirationDate(promoteInfo.expirationDate());
     }
 
-    public OfferSummary mapOfferToSummary(Offer offer,
-                                          List<Integer> userFavoriteOffers) {
-        Optional<Address> address = offer.getAddresses()
-                .stream()
-                .findFirst();
-        String location = address.isPresent() ? address.get().getCity() : "";
-        Set<BidInfo> offerBids = getOfferBidsList(offer);
-        BigDecimal highestBid = computeHighestBid(offer);
-        Boolean isUserFavorite = userFavoriteOffers != null ? userFavoriteOffers.contains(offer.getId()) : null;
-
-        return offerMapper.mapToOfferSummary(offer, location, offerBids, highestBid, isUserFavorite, getOfferStatus(offer), offer.isPromoted(), getDisplayPrice(offer));
-    }
-
-    private BigDecimal getDisplayPrice(Offer offer) {
-        CurrencyType displayCurrency = CurrencyType.valueOf(offer.getCurrencyType());
-        if (displayCurrency == CurrencyType.RON) {
-            return offer.getPrice();
-        }
-        return offer.getPrice().divide(CurrencyType.RON_EURO_CONVERSION, RoundingMode.FLOOR);
-    }
-
     public SearchSummaryInfo searchOfferInCategories(String offerTitle) {
         var offersMap = offerRepository.findAllOffersByTitleLike(offerTitle.toLowerCase())
                 .stream()
@@ -339,7 +333,7 @@ public class OfferService {
         return new SearchSummaryInfo(result);
     }
 
-    @Cacheable(cacheNames = "PromotedOffersCache")
+    @Cacheable(cacheNames = "shortLivedCache")
     public List<OfferSummary> getPromotedOffers() {
         Set<Integer> cachedOfferIds = cacheUtils.getCachedOfferIds();
         var promotedOffers = offerRepository.findPromotedOffersExcluding(cachedOfferIds);
@@ -352,6 +346,37 @@ public class OfferService {
         return promotedOffers.stream()
                 .map(offer -> mapOfferToSummary(offer, userFavoriteOffers))
                 .toList();
+    }
+
+    public OfferSummary mapOfferToSummary(Offer offer,
+                                          List<Integer> userFavoriteOffers) {
+        Optional<Address> address = offer.getAddresses()
+                .stream()
+                .findFirst();
+        String location = address.isPresent() ? address.get().getCity() : "";
+        Set<BidInfo> offerBids = getOfferBidsList(offer);
+        BigDecimal highestBid = computeHighestBid(offer);
+        Boolean isUserFavorite = userFavoriteOffers != null ? userFavoriteOffers.contains(offer.getId()) : null;
+
+        return offerMapper.mapToOfferSummary(offer, location, offerBids, highestBid, isUserFavorite, getOfferStatus(offer), offer.isPromoted(), computePrice(offer));
+    }
+
+    public BigDecimal computePrice(Offer offer) {
+        CurrencyType displayCurrency = CurrencyType.valueOf(offer.getCurrencyType());
+        return displayCurrency.getCurrencyPrice(offer.getPrice(), sysConfiguration.getSystemCurrency(displayCurrency.name()));
+    }
+
+    @Transactional
+    public String generateDeepLink(Integer offerId) {
+        var offer = offerRepository.findOfferById(offerId)
+                .orElseThrow(() -> new EntityNotFoundException("Offer not found."));
+        if (StringUtils.hasText(offer.getDeepLink())) {
+            return offer.getDeepLink();
+        }
+        var deepLink = generateDeepLink(offerId, offer);
+        offer.setDeepLink(deepLink);
+
+        return deepLink;
     }
 
     private List<Offer> getExtraOffers(Set<Integer> cachedOfferIds, int size) {
@@ -431,7 +456,7 @@ public class OfferService {
     private Offer getOfferWithData(OfferInfo offerInfo) {
         Offer newOffer = offerMapper.mapToOffer(offerInfo);
         newOffer.setAvailable(true);
-        newOffer.setPrice(offerInfo.currencyType().toRonConversion(offerInfo.price()));
+        newOffer.computeDBPrice(offerInfo.price(), sysConfiguration.getSystemCurrency(offerInfo.currencyType().name()));
         Date publishDate = new Date();
         newOffer.setPublishDate(publishDate);
 
@@ -522,7 +547,7 @@ public class OfferService {
                 .findFirst();
         String location = address.isPresent() ? address.get().getCity() : "";
 
-        return offerMapper.mapToDetailedOffer(offer, location, getOfferBidsList(offer), computeHighestBid(offer), isFavorite, getOfferStatus(offer), offer.isPromoted(), offer.getPhoneNumbersAsString(), getDisplayPrice(offer));
+        return offerMapper.mapToDetailedOffer(offer, location, getOfferBidsList(offer), computeHighestBid(offer), isFavorite, getOfferStatus(offer), offer.isPromoted(), offer.getPhoneNumbersAsString(), computePrice(offer));
     }
 
     private String getOfferStatus(Offer offer) {
@@ -548,12 +573,12 @@ public class OfferService {
         userService.updateUserCoinsNumber(userDetails.getUsername(), remainingCoins);
     }
 
-    private com.auxby.productmanager.entity.File getOfferImage(List<com.auxby.productmanager.entity.File> offerImages,
-                                                               MultipartFile photo,
-                                                               String url) {
-        com.auxby.productmanager.entity.File file = new com.auxby.productmanager.entity.File();
+    private com.auxby.productmanager.api.v1.commun.entity.File getOfferImage(List<com.auxby.productmanager.api.v1.commun.entity.File> offerImages,
+                                                                             MultipartFile photo,
+                                                                             String url) {
+        com.auxby.productmanager.api.v1.commun.entity.File file = new com.auxby.productmanager.api.v1.commun.entity.File();
         var primary = offerImages.stream()
-                .filter(com.auxby.productmanager.entity.File::isPrimary)
+                .filter(com.auxby.productmanager.api.v1.commun.entity.File::isPrimary)
                 .findFirst();
         if (Objects.nonNull(photo.getOriginalFilename()) &&
                 Objects.requireNonNull(photo.getOriginalFilename()).contains(DEFAULT) &&
@@ -573,5 +598,29 @@ public class OfferService {
             return "";
         }
         return phone.getValue();
+    }
+
+    private void validateSearchCriteria(OfferSearch searchCriteria) throws BadRequestException {
+        if (Objects.nonNull(searchCriteria.priceFilter()) && Objects.isNull(searchCriteria.priceFilter().currencyType())) {
+            throw new BadRequestException("Currency type is mandatory for price filter.");
+        }
+    }
+
+    private List<com.auxby.productmanager.api.v1.commun.entity.File> uploadImages(Integer offerId, MultipartFile[] files, String userUuid) {
+        List<com.auxby.productmanager.api.v1.commun.entity.File> offerImages = new ArrayList<>();
+        Arrays.stream(files)
+                .forEach(photo -> {
+                    String url = processImage(offerId, userUuid, photo);
+                    com.auxby.productmanager.api.v1.commun.entity.File file = getOfferImage(offerImages, photo, url);
+                    offerImages.add(file);
+                });
+
+        return offerImages;
+    }
+
+    private String generateDeepLink(Integer offerId, Offer offer) {
+        var primaryFile = offer.getMainImage();
+        var url = primaryFile.map(com.auxby.productmanager.api.v1.commun.entity.File::getUrl).orElse("");
+        return branchIOService.createDeepLink(offerId, offer.getName(), url);
     }
 }

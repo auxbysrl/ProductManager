@@ -1,6 +1,5 @@
 package com.auxby.productmanager.api.v1.favorite;
 
-import com.auxby.productmanager.entity.Favorite;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

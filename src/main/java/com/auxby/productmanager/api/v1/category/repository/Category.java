@@ -2,7 +2,7 @@ package com.auxby.productmanager.api.v1.category.repository;
 
 import com.auxby.productmanager.api.v1.category.dto.CategoryDetailDto;
 import com.auxby.productmanager.api.v1.category.dto.LocalizationDto;
-import com.auxby.productmanager.entity.base.AuxbyBaseEntity;
+import com.auxby.productmanager.api.v1.commun.entity.base.AuxbyBaseEntity;
 import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
 import lombok.Data;
 import org.hibernate.annotations.Parameter;

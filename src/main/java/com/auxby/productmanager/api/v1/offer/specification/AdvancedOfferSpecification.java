@@ -1,22 +1,28 @@
 package com.auxby.productmanager.api.v1.offer.specification;
 
 import com.amazonaws.util.StringUtils;
+import com.auxby.productmanager.api.v1.commun.entity.Address;
+import com.auxby.productmanager.api.v1.commun.system_configuration.SystemConfiguration;
+import com.auxby.productmanager.api.v1.offer.repository.Offer;
 import com.auxby.productmanager.api.v1.offer.specification.criteria.OfferSearch;
 import com.auxby.productmanager.api.v1.offer.specification.criteria.filter.PriceFilter;
-import com.auxby.productmanager.entity.Address;
-import com.auxby.productmanager.api.v1.offer.repository.Offer;
 import com.auxby.productmanager.utils.enums.OfferType;
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import org.springframework.data.jpa.domain.Specification;
 
 import javax.persistence.criteria.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 @AllArgsConstructor
 public class AdvancedOfferSpecification implements Specification<Offer> {
-    public static final String OFFER_PRICE_KEY = "price";
+
+    private static final String OFFER_PRICE_KEY = "price";
+
     private final OfferSearch criteria;
+    private final SystemConfiguration configuredCurrency;
 
     @Override
     public Predicate toPredicate(@NonNull Root<Offer> root,
@@ -83,8 +89,8 @@ public class AdvancedOfferSpecification implements Specification<Offer> {
                 || Objects.isNull(priceFilter.currencyType())) {
             return cb.and();
         }
-        var highestPrice = priceFilter.currencyType().toRonConversion(priceFilter.highestPrice());
-        var lowestPrice = priceFilter.currencyType().toRonConversion(priceFilter.lowestPrice());
+        var highestPrice = priceFilter.currencyType().toRonConversion(priceFilter.highestPrice(), configuredCurrency);
+        var lowestPrice = priceFilter.currencyType().toRonConversion(priceFilter.lowestPrice(), configuredCurrency);
 
         if (Objects.nonNull(priceFilter.lowestPrice()) && Objects.nonNull(priceFilter.highestPrice())) {
             return cb.between(root.get(OFFER_PRICE_KEY), lowestPrice, highestPrice);

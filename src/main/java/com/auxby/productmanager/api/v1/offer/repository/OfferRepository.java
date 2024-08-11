@@ -5,6 +5,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -29,11 +30,15 @@ public interface OfferRepository extends JpaRepository<Offer, Integer>, JpaSpeci
             "WHERE o.isAvailable = true AND o.isOnAuction = true AND o.id =:id")
     Optional<Offer> findByIdAndAvailableTrueAndOnAuctionTrue(Integer id);
 
-    @Query(value = "SELECT o FROM Offer o JOIN user_details ud on o.owner_id = ud.id WHERE " +
-            "o.publish_date < NOW() - INTERVAL '30 days' AND " +
-            "o.is_on_auction = FALSE AND " +
-            "o.auto_extend = TRUE ORDER BY o.id", nativeQuery = true)
-    List<Offer> getOffersToAutoExtend();
+    @Query("""
+            SELECT o FROM Offer o JOIN o.owner ud
+            WHERE o.publishDate >= :startOfDay AND
+                  o.publishDate < :startOfNextDay AND
+                  o.isOnAuction = false AND
+                  o.autoExtend = true
+            """)
+    List<Offer> getOffersToAutoExtend(@Param("startOfDay") Date startOfDay,
+                                      @Param("startOfNextDay") Date startOfNextDay);
 
     @Query("SELECT o FROM Offer o " +
             "JOIN FETCH o.owner " +
@@ -57,10 +62,12 @@ public interface OfferRepository extends JpaRepository<Offer, Integer>, JpaSpeci
 
     @Transactional
     @Modifying
-    @Query(value = "UPDATE offer  SET is_available = false WHERE " +
-            "((is_on_auction = false AND publish_date < (CURRENT_TIMESTAMP - INTERVAL '30 days') ) OR " +
-            "(is_on_auction = true AND auction_end_date < CURRENT_TIMESTAMP))", nativeQuery = true)
-    void updateExpiredOffers();
+    @Query("""
+            UPDATE Offer o SET o.isAvailable = false
+                        WHERE (o.isOnAuction = false AND o.publishDate < :thirtyDaysAgo)
+                        OR (o.isOnAuction = true AND o.auctionEndDate < CURRENT_TIMESTAMP)
+            """)
+    void updateExpiredOffers(@Param("thirtyDaysAgo") Date thirtyDaysAgo);
 
     @Transactional
     @Modifying
@@ -103,4 +110,21 @@ public interface OfferRepository extends JpaRepository<Offer, Integer>, JpaSpeci
                    LIMIT :limit
             """, nativeQuery = true)
     List<Offer> getRandomOffersExcluding(@Param("excludedIds") Set<Integer> excludedIds, int limit);
+
+    @Query("""
+            SELECT o.id as id, o.name as name, u.username as owner
+            FROM Offer o
+            LEFT JOIN o.owner u
+            WHERE o.isAvailable = true
+            AND (
+                o.publishDate BETWEEN :publishStartDate AND :publishEndDate
+                OR o.auctionEndDate BETWEEN :auctionStartDate AND :auctionEndDate
+            )
+            """)
+    List<OfferSummaryProjection> findAvailableOffersWithinDateRanges(
+            @Param("publishStartDate") Date publishStartDate,
+            @Param("publishEndDate") Date publishEndDate,
+            @Param("auctionStartDate") Date auctionStartDate,
+            @Param("auctionEndDate") Date auctionEndDate
+    );
 }

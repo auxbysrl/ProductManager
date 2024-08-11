@@ -1,5 +1,7 @@
 package com.auxby.productmanager.entity;
 
+import com.auxby.productmanager.api.v1.commun.entity.Contact;
+import com.auxby.productmanager.api.v1.commun.entity.File;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
